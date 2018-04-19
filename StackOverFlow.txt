@@ -1,0 +1,84 @@
+#include<stdlib.h>
+#include <stdint.h>
+
+//structure defiens bitmap header
+struct BITMAPFILEHEADER{
+   uint8_t type[2];//type of file (bit map)
+   uint32_t size;//size of file
+   uint16_t reserved1;//
+   uint16_t reserved2;//
+   uint32_t offsetbits;//off set bits
+} __attribute__ ((packed));
+
+struct BITMAPINFOHEADER{
+   uint32_t size;//bitmap size
+  // uint16_t w2;
+   uint32_t width;//width of bitmap
+  //uint16_t h2;
+   uint32_t height;//hight of bitmap
+
+   uint16_t planes;
+   uint16_t bitcount;
+   uint32_t compression;// compression ratio (zero for no compression)
+   uint32_t sizeimage;//size of image
+   long xpelspermeter;
+   long ypelspermeter;
+   uint32_t colorsused;
+   uint32_t colorsimportant;
+} __attribute__ ((packed));
+
+
+ //const char* INPUT_FILE = "/home/bogdan/bee.bmp";
+const char* INPUT_FILE = "/home/bogdan/Linux.bmp";
+const char* ENCODED_FILE = "/home/bogdan/encoded.bin";
+const char* DECODED_FILE = "/home/bogdan/decoded.bmp";
+
+typedef struct SINGLE_PIXEL{
+    uint8_t green;//Green level 0-255
+    uint8_t red;  //Red level 0-255
+} PIXEL;
+
+int comparePixels(PIXEL, PIXEL);
+void encode();
+void decode(char*);
+
+int main()
+{
+    encode();
+    decode(ENCODED_FILE);
+    return 0;
+}
+
+void encode() {
+    uint32_t i=0;//to count pixels read
+    uint32_t pixno=0;//number of pixels to read
+
+    struct BITMAPFILEHEADER source_head;//to store file header
+    struct BITMAPINFOHEADER source_info;//to store bitmap info header
+    PIXEL pixel;// the current pixel
+
+    FILE *in;// bitmap imput pointer file
+    FILE *out;//output file pointer
+
+    if(!(in=fopen(INPUT_FILE,"rb")))//open in binary read mode
+    {
+    printf("\ncan not open file");//error at opening file
+    exit(-1);
+    }
+
+
+out=fopen(ENCODED_FILE,"wb");//opne in binary write mode
+//read the headers to source file
+fread(&source_head,sizeof(struct BITMAPFILEHEADER),1,in);
+fread(&source_info,sizeof(struct BITMAPINFOHEADER),1,in);
+
+//write the headers to the output file
+fwrite(&source_head,sizeof(struct BITMAPFILEHEADER),1,out);
+fwrite(&source_info,sizeof(struct BITMAPINFOHEADER),1,out);
+
+//cumpute the number of pixels to read
+pixno=source_info.width*source_info.height;
+
+// init list of pixels
+PIXEL pixArr[pixno];
+printf("total pixels: %d", pixno);
