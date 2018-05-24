@@ -9,6 +9,7 @@ unsigned int fileSize =0;
 unsigned int height =0;
 unsigned int width =0;
 unsigned int offset =0;
+unsigned long int pixelCompressedCounter=0;
 unsigned int colorTableSize =0;
 
 
@@ -59,7 +60,7 @@ struct bmpDIBHeader
 
 struct bmpColorTable
 {
-    unsigned int *colorDefinition;
+    unsigned int colorDefinition[256];
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -69,7 +70,7 @@ struct bmpColorTable
 void ReadHeaderAndPrint(bmpSignature signature,bmpFileHeader fileHeader,bmpDIBHeader dibHeader)
 {
     ifstream iFile;
-    iFile.open("bridge.bmp",ios:: binary);
+    iFile.open("lighthouse.bmp",ios:: binary);
     if(iFile.eof()) return;
 
     iFile.seekg(0,ios::beg);
@@ -77,11 +78,9 @@ void ReadHeaderAndPrint(bmpSignature signature,bmpFileHeader fileHeader,bmpDIBHe
     iFile.read((char*)&fileHeader,sizeof(fileHeader));
     iFile.read((char*)&dibHeader,sizeof(dibHeader));
 
-    colorTableSize = dibHeader.colorsInColorTable;
+    //colorTableSize = dibHeader.colorsInColorTable;
 
     bmpColorTable colorTable;
-    colorTable.colorDefinition = new unsigned int [colorTableSize];
-
     iFile.read((char*)&colorTable,sizeof(colorTable));
 
     iFile.close();
@@ -124,10 +123,10 @@ void ReadHeaderAndPrint(bmpSignature signature,bmpFileHeader fileHeader,bmpDIBHe
 
     //ppppppppppppppppppppppppppppppppppppppproblem here
 
-   /* for(int i=0;i<colorTableSize;i++)
+    for(int i=0;i<256;i++)
     {
-        cout<<"color in table - "<<i<<"     : "<<colorTable.colorDefinition[i]<<endl;
-    }*/
+        cout<<colorTable.colorDefinition[i]<<endl;
+    }
 
 
 
@@ -139,18 +138,15 @@ void ReadHeaderAndPrint(bmpSignature signature,bmpFileHeader fileHeader,bmpDIBHe
 void compressImageFile(bmpSignature signature,bmpFileHeader fileHeader,bmpDIBHeader dibHeader)
 {
     ifstream iFile;
-    iFile.open("bridge.bmp",ios:: binary);
+    ofstream oFile;
+
+    iFile.open("lighthouse.bmp",ios:: binary);
     if(iFile.eof()) return;
 
     iFile.seekg(0,ios::beg);
     iFile.read((char*)&signature,sizeof(signature)); // memory allocation problem if signature is in fileHeader.Char and int///////
     iFile.read((char*)&fileHeader,sizeof(fileHeader));
     iFile.read((char*)&dibHeader,sizeof(dibHeader));
-
-    colorTableSize = dibHeader.colorsInColorTable;
-    bmpColorTable colorTable;
-    colorTable.colorDefinition = new unsigned int [colorTableSize];
-    iFile.read((char*)&colorTable,sizeof(colorTable));
 
     fileSize =  fileHeader.fileSize;
     offset   =  fileHeader.dataOffset;
@@ -159,74 +155,48 @@ void compressImageFile(bmpSignature signature,bmpFileHeader fileHeader,bmpDIBHea
 
     iFile.close();
 
-    ofstream oFile;
-    oFile.open("OFile.txt");
-    if(oFile.is_open())
+    iFile.open("lighthouse.bmp",ios:: binary);
+    oFile.open("OutputBMP.rle",ios::binary);
+
+    if(!iFile.is_open() && !oFile.is_open()) return;
+
+    unsigned char ch;
+    unsigned char old;
+    unsigned char present;
+    unsigned short int pixelCounter = 1;
+    unsigned long int counter =0;
+    unsigned long int limit = (width*height)+offset;
+
+    cout<<offset<<"    "<<limit<<endl;
+
+    while(!iFile.eof())
     {
-        oFile<<signature.signatureData[0];
-        oFile<<signature.signatureData[1];
+        ch = iFile.get();
+        counter++;
 
-        oFile<<fileHeader.fileSize;
-        oFile<<fileHeader.reserved1;
-        oFile<<fileHeader.reserved2;
-        oFile<<fileHeader.dataOffset;
-
-        oFile<<dibHeader.headerSize;
-        oFile<<dibHeader.width;
-        oFile<<dibHeader.height;
-        oFile<<dibHeader.planes;
-        oFile<<dibHeader.bpPixels;
-        oFile<<dibHeader.compression;
-        oFile<<dibHeader.imageSize;
-        oFile<<dibHeader.pixelPerMeterX;
-        oFile<<dibHeader.pixelPerMeterY;
-        oFile<<dibHeader.colorsInColorTable;
-        oFile<<dibHeader.importantcolorCount;
-        oFile<<dibHeader.redChannelBitmask;
-        oFile<<dibHeader.greenChannelBitmask;
-        oFile<<dibHeader.blueChannelBitmask;
-        oFile<<dibHeader.alphaChannelBitmask;
-        oFile<<dibHeader.colorSpaceType;
-        oFile<<dibHeader.colorSpaceEnpoints;
-        oFile<<dibHeader.gammaForRedChannel;
-        oFile<<dibHeader.gammaForGreenChannel;
-        oFile<<dibHeader.gammaForBlueChannel;
-        oFile<<dibHeader.intent;
-        oFile<<dibHeader.iccProfileData;
-        oFile<<dibHeader.iccProfileSize;
-        oFile<<dibHeader.reserved;
-
-
-        unsigned long int compressCounter =0;
-        unsigned char ch;
-        unsigned char old;
-        unsigned char present;
-        unsigned int counter = 1;
-
-        ifstream iFile;
-        iFile.open("bridge.bmp", ios::binary);
-
-        while(!iFile.eof())
+        if(counter>offset-1 && counter<limit)
         {
-            ch = iFile.get();
-            compressCounter++;
-            if(compressCounter>=offset && compressCounter<width*height)
+            present = ch;
+            if(present == old) pixelCounter++;
+            else
             {
-                present = ch;
-                if(present == old) counter++;
-                else
-                {
-                    oFile << old;
-                    oFile << counter;
-                    counter = 1;
-                }
-                old = present;
+                oFile << old;
+                char temp = (char)pixelCounter;
+                //if(pixelCounter>1) oFile << temp; //don't need if value is not more than one.
+                oFile << temp;
+                pixelCounter = 1;
+                pixelCompressedCounter++;
             }
-
+            old = present;
+        }
+        else
+        {
+            oFile<<ch;
+            old = ch;
         }
 
     }
-
+    cout<<pixelCompressedCounter<<endl;
 }
 
 
@@ -235,81 +205,63 @@ void extractImageFile(bmpSignature signature,bmpFileHeader fileHeader,bmpDIBHead
 {
     ifstream iFile;
     ofstream oFile;
-    iFile.open("OFile.txt",ios::binary);
-    oFile.open("bmpCopy.bmp",ios::binary);
 
+    iFile.open("outputBMP.rle",ios::binary);
     if(iFile.eof()) return;
 
     iFile.seekg(0,ios::beg);
     iFile.read((char*)&signature,sizeof(signature)); // memory allocation problem if signature is in fileHeader.Char and int///////
     iFile.read((char*)&fileHeader,sizeof(fileHeader));
     iFile.read((char*)&dibHeader,sizeof(dibHeader));
+    iFile.close();
 
-    /*colorTableSize = dibHeader.colorsInColorTable;
-    bmpColorTable colorTable;
-    colorTable.colorDefinition = new unsigned int [colorTableSize];
-    iFile.read((char*)&colorTable,sizeof(colorTable));
-*/
     fileSize =  fileHeader.fileSize;
     offset   =  fileHeader.dataOffset;
     height   =  dibHeader.height;
     width    =  dibHeader.width;
 
+    cout<<offset<<" "<<height<<endl;
+    cout<<pixelCompressedCounter<<endl;
 
-    if(oFile.is_open())
+    iFile.open("outplutBMP.rle",ios::binary);
+    oFile.open("BMPDecompress.bmp",ios::binary);
+    if(!iFile.is_open() && !oFile.is_open()) return;
+
+    unsigned char ch;
+    unsigned char num;
+    unsigned short int temp;
+    unsigned long int counter=0;
+
+    while(!iFile.eof())
     {
-        oFile<<signature.signatureData[0];
-        oFile<<signature.signatureData[1];
+        ch = iFile.get();
+        counter++;
 
-        oFile<<fileHeader.fileSize;
-        oFile<<fileHeader.reserved1;
-        oFile<<fileHeader.reserved2;
-        oFile<<fileHeader.dataOffset;
-
-        oFile<<dibHeader.headerSize;
-        oFile<<dibHeader.width;
-        oFile<<dibHeader.height;
-        oFile<<dibHeader.planes;
-        oFile<<dibHeader.bpPixels;
-        oFile<<dibHeader.compression;
-        oFile<<dibHeader.imageSize;
-        oFile<<dibHeader.pixelPerMeterX;
-        oFile<<dibHeader.pixelPerMeterY;
-        oFile<<dibHeader.colorsInColorTable;
-        oFile<<dibHeader.importantcolorCount;
-        oFile<<dibHeader.redChannelBitmask;
-        oFile<<dibHeader.greenChannelBitmask;
-        oFile<<dibHeader.blueChannelBitmask;
-        oFile<<dibHeader.alphaChannelBitmask;
-        oFile<<dibHeader.colorSpaceType;
-        oFile<<dibHeader.colorSpaceEnpoints;
-        oFile<<dibHeader.gammaForRedChannel;
-        oFile<<dibHeader.gammaForGreenChannel;
-        oFile<<dibHeader.gammaForBlueChannel;
-        oFile<<dibHeader.intent;
-        oFile<<dibHeader.iccProfileData;
-        oFile<<dibHeader.iccProfileSize;
-        oFile<<dibHeader.reserved;
-
-        unsigned char ch;
-        unsigned char num;
-        unsigned int counter=0;
-        while(!iFile.eof() && counter<height*width)
+        if(counter>offset-1 && pixelCompressedCounter>=0)
         {
-            ch = iFile.get();
             num = iFile.get();
-
-            for(int i=0;i<(int)ch;i++)
-            {
-                oFile << num;
-            }
-
             counter++;
 
-        }
+            temp = (int) num;
 
+            cout<<ch;
+            cout<<temp;
+
+            for(short int i=0;i<temp;i++)
+            {
+                oFile<<ch;
+            }
+
+            pixelCompressedCounter--;
+        }
+        else
+        {
+            oFile<<ch;
+            cout<<ch;
+        }
     }
-}s
+
+}
 
 
 void cutImageFile(bmpSignature signature,bmpFileHeader fileHeader,bmpDIBHeader dibHeader)
@@ -625,10 +577,10 @@ int main ()
     bmpFileHeader fileHeader;
     bmpDIBHeader dibHeader;
 
-    //ReadHeaderAndPrint(signature,fileHeader,dibHeader);
+    ReadHeaderAndPrint(signature,fileHeader,dibHeader);
     //compressImageFile(signature,fileHeader,dibHeader);
     //extractImageFile(signature,fileHeader,dibHeader);
-    cutImageFile(signature,fileHeader,dibHeader);
+    //cutImageFile(signature,fileHeader,dibHeader);
 
    // cout <<"+BMP Signature                  : "<<signature.signatureData[0]<<signature.signatureData[1]<<endl;
     //getPictureAttributesValue(fileHeader,dibHeader);
