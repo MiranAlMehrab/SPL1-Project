@@ -121,15 +121,6 @@ void ReadHeaderAndPrint(bmpSignature signature,bmpFileHeader fileHeader,bmpDIBHe
     cout <<"+BMP DIB reserved               : "<<dibHeader.reserved<<" bytes"<<endl;
 
 
-    //ppppppppppppppppppppppppppppppppppppppproblem here
-
-    for(int i=0;i<256;i++)
-    {
-        cout<<colorTable.colorDefinition[i]<<endl;
-    }
-
-
-
 }
 
 
@@ -181,9 +172,10 @@ void compressImageFile(bmpSignature signature,bmpFileHeader fileHeader,bmpDIBHea
             else
             {
                 oFile << old;
+
                 char temp = (char)pixelCounter;
-                //if(pixelCounter>1) oFile << temp; //don't need if value is not more than one.
-                oFile << temp;
+                if(pixelCounter>1) oFile << temp; //don't need if value is not more than one.
+
                 pixelCounter = 1;
                 pixelCompressedCounter++;
             }
