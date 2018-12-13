@@ -1,3 +1,1 @@
-#SPL1-Project     
-Code - FinalSPLCode.cpp all in a single File    
-Bitmap image - crowd.bmp
+Implementation of LZ78,RLE and Hauffman Algorithm.
